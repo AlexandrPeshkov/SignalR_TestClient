@@ -3,27 +3,19 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Client_SignalR
 {
     /// <summary>
     /// SignalR клиент. Получение координат техники
     /// </summary>
-    /// <typeparam name="T">
-    /// Предпочтительный тип данных MapObjectChangedEventArgs
-    /// \Objects-WebApi\Objects.BLL\Core\MapObjectChangedEventArgs.cs
-    /// </typeparam>
-    class SignalRTestHub<T> where T : EventArgs
+    class SignalRTestHub
     {
         /// <summary>
         /// Клиентский ХАБ
         /// </summary>
         private HubConnection ClientHub { get; set; }
-
-        /// <summary>
-        /// Состояние подключения хаба к серверу
-        /// </summary>
-        public bool IsConnected { get; private set; }
 
         /// <summary>
         /// Имя метода для удаленного вызова
@@ -34,7 +26,12 @@ namespace Client_SignalR
         /// <summary>
         /// Делегат процедуры обратного вызова
         /// </summary>
-        protected Action<T> OnObjectChanged { get; set; }
+        protected Action<MapObjectChangedEventArgs> OnObjectChanged { get; set; }
+
+        /// <summary>
+        /// Состояние подключения хаба к серверу
+        /// </summary>
+        public bool IsConnected { get; private set; }
 
         /// <summary>
         /// Создание хаба
@@ -49,55 +46,65 @@ namespace Client_SignalR
             IsConnected = false;
 
             ///Метод обратного вызова на каждое обновление данных
-            ClientHub.On<T>(RemoteEventName, OnObjectChanged);
+            OnObjectChanged = OnObjectChangedCallBack;
 
+            ///Подписки
+            ClientHub.On<MapObjectChangedEventArgs>(RemoteEventName, OnObjectChanged);
             ClientHub.Closed += OnClientHubClosed;
         }
 
-        private System.Threading.Tasks.Task OnClientHubClosed(Exception arg)
+        public void Start()
         {
-            return new System.Threading.Tasks.Task(() => IsConnected = false);
+            TryConnect();
+
+            while (true)
+            {
+                //Просто ждем данные от WebApi
+            }
+        }
+
+        private Task OnClientHubClosed(Exception arg)
+        {
+            //Меняем статус на "отключен"
+            System.Diagnostics.Debug.WriteLine("Was DISconnected");
+            return new Task(() => IsConnected = false);
+
         }
 
         /// <summary>
         /// Попытка подключить хаб
         /// </summary>
-        public async void TryConnect()
+        private async void TryConnect()
         {
             try
             {
                 await ClientHub.StartAsync();
                 IsConnected = true;
+                System.Diagnostics.Debug.WriteLine("Was connected");
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
+                IsConnected = false;
+                System.Diagnostics.Debug.WriteLine(exception.Message);
                 throw new Exception();
             }
         }
 
-        public void Start()
-        {
-            while (IsConnected)
-            {
-                //Просто ждем данные
-            }
-        }
-
         /// <summary>
-        /// Реализация callback метода. Вызывается при получении новых данных 
+        /// Вариант реализации callback обработки
         /// </summary>
         /// <param name="Data"> 
+        /// Список техники 
         /// </param>
-        public void OnObjectChangedCallBack(T Data)
+        private void OnObjectChangedCallBack(MapObjectChangedEventArgs Data)
         {
-            //to do
-            //Парсим данные в зависимости от реализации клиента
             var EventArgs = Data as MapObjectChangedEventArgs;
 
             if(EventArgs!=null)
             {
-                JArray jArray = (JArray)EventArgs.Parameters;
 
+                JArray jArray = (JArray)EventArgs.Parameters;
+                Console.WriteLine("New pack -----------------------------");
                 foreach(var elem in jArray)
                 {
                     Console.WriteLine(""

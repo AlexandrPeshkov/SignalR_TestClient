@@ -10,12 +10,8 @@ namespace Client_SignalR
 
         static void Main(string[] args)
         {
-           
+            var Hub = new SignalRTestHub();
+            Hub.Start();
         }
-
-
-
-  
-
     }
 }
